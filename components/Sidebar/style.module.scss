@@ -1,0 +1,14 @@
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.logoutButton {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: #292624;
+    }
+}
