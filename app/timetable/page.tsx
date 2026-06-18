@@ -146,7 +146,7 @@ export default function TimetablePage() {
             const month = monday.getMonth() + 1
 
             const [res, overridesRes] = await Promise.all([
-                apiGet<Timetable[]>(`/timetable/${gradeNum}/${classNum}?from=${formatDate(monday)}&to=${formatDate(friday)}`),
+                apiGet<Timetable[]>(`/timetable/${gradeNum}/${classNum}/week?from=${formatDate(monday)}&to=${formatDate(friday)}`),
                 apiGet<any[]>(`/admin/timetable-overrides?year=${year}&month=${month}`)
             ])
 
@@ -204,30 +204,18 @@ export default function TimetablePage() {
                 })
             }
 
-            // Fill empty slots with dummy data as requested
+            // Fill empty slots with empty indicator ('-') instead of dummy data as requested
             DAYS.forEach(dayKey => {
                 const currentPeriods = week[dayKey]
-                const dummyDayPeriods = DUMMY_TIMETABLE[dayKey] || []
                 for (let p = 1; p <= 7; p++) {
                     if (!currentPeriods.find(period => period.period === p)) {
-                        const dummyPeriod = dummyDayPeriods.find(dp => dp.period === p)
-                        if (dummyPeriod) {
-                            currentPeriods.push({
-                                period: p,
-                                subject_short: dummyPeriod.subject_short,
-                                subject_long: dummyPeriod.subject_long,
-                                teacher: dummyPeriod.teacher,
-                                is_substituted: false,
-                            })
-                        } else {
-                            currentPeriods.push({
-                                period: p,
-                                subject_short: '-',
-                                subject_long: '',
-                                teacher: '',
-                                is_substituted: false,
-                            })
-                        }
+                        currentPeriods.push({
+                            period: p,
+                            subject_short: '-',
+                            subject_long: '',
+                            teacher: '',
+                            is_substituted: false,
+                        })
                     }
                 }
                 currentPeriods.sort((a, b) => a.period - b.period)
