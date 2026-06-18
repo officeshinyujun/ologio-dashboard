@@ -200,7 +200,6 @@ export default function HomePage() {
                 <HStack gap={SPACING.s16} fullWidth>
                     <StatCard label="오늘 접속자 (DAU)" value="—" />
                     <StatCard label="신규 가입자" value="—" />
-                    <StatCard label="Google API 동기화 성공률" value="—" />
                 </HStack>
                 <Typo.SM color="secondary">로딩 중...</Typo.SM>
             </VStack>
@@ -233,12 +232,6 @@ export default function HomePage() {
                     label="신규 가입자"
                     value={String(stats.today_new_users)}
                     sub="오늘 기준"
-                />
-                <StatCard
-                    label="Google API 동기화 성공률"
-                    value={`${stats.gcal_sync_success_rate}%`}
-                    sub="최근 24시간"
-                    color="correct"
                 />
             </HStack>
 

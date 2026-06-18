@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { COLORS } from '@/constants/colors';
-import { SPACING } from '@/constants/spacing';
-import { VStack } from '@/components/general/VStack';
-import Typo from '@/components/general/Typo';
+import { useEffect } from "react";
+import { COLORS } from "@/constants/colors";
+import { SPACING } from "@/constants/spacing";
+import { VStack } from "@/components/general/VStack";
+import Typo from "@/components/general/Typo";
 
 export default function LoginPage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
-    document.title = '로그인 - Ologio 관리자 대시보드';
+    document.title = "로그인 - Ologio 관리자 대시보드";
   }, []);
 
   const handleGoogleLogin = () => {
@@ -23,7 +23,8 @@ export default function LoginPage() {
       align="center"
       justify="center"
       style={{
-        minHeight: '100vh',
+        width: "100vw",
+        minHeight: "100vh",
         background: COLORS.background.primary,
       }}
     >
@@ -37,7 +38,9 @@ export default function LoginPage() {
           border: `1px solid ${COLORS.border.primary}`,
         }}
       >
-        <Typo.XL color="primary" fontWeight="bold">Ologio 관리자</Typo.XL>
+        <Typo.XL color="primary" fontWeight="bold">
+          Ologio dashboard
+        </Typo.XL>
         <Typo.SM color="secondary">관리자 계정으로 로그인하세요</Typo.SM>
         <button
           onClick={handleGoogleLogin}
@@ -45,11 +48,11 @@ export default function LoginPage() {
             padding: `${SPACING.s12}px ${SPACING.s24}px`,
             background: COLORS.brand.primary,
             color: COLORS.background.primary,
-            border: 'none',
+            border: "none",
             borderRadius: 8,
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: "pointer",
           }}
         >
           Google로 로그인
