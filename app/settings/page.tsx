@@ -227,8 +227,13 @@ export default function SettingsPage() {
 
     const handleDeleteTemplate = async (tpl: PeriodScheduleTemplate) => {
         if (!confirm(`정말로 "${tpl.name}" 일과 템플릿을 삭제하시겠습니까?`)) return
+        const idString = extractId(tpl._id)
+        if (!idString) {
+            alert('유효하지 않은 템플릿 ID입니다.')
+            return
+        }
         try {
-            const res = await apiDelete(`/admin/config/period-templates/${encodeURIComponent(tpl.name)}`)
+            const res = await apiDelete(`/admin/config/period-templates/${idString}`)
             if (res.success) {
                 fetchTemplates()
             } else {
