@@ -12,6 +12,41 @@ import { DEPARTMENT_LABELS } from '@/types/api'
 
 const getId = (id: any): string => (typeof id === 'object' && id !== null ? id.$oid || id.id || id._id || String(id) : String(id));
 
+const formatDate = (dateVal: any): string => {
+    if (!dateVal) return '-';
+
+    if (typeof dateVal === 'object') {
+        if ('$date' in dateVal) {
+            const dateInner = dateVal.$date;
+            if (typeof dateInner === 'object' && dateInner !== null && '$numberLong' in dateInner) {
+                const ms = parseInt(dateInner.$numberLong, 10);
+                if (!isNaN(ms)) {
+                    return new Date(ms).toLocaleString('ko-KR');
+                }
+            } else if (typeof dateInner === 'string' || typeof dateInner === 'number') {
+                const parsedDate = new Date(dateInner);
+                if (!isNaN(parsedDate.getTime())) {
+                    return parsedDate.toLocaleString('ko-KR');
+                }
+            }
+        }
+    }
+
+    if (typeof dateVal === 'string') {
+        const parsed = new Date(dateVal);
+        if (!isNaN(parsed.getTime())) {
+            return parsed.toLocaleString('ko-KR');
+        }
+        return dateVal;
+    }
+
+    if (dateVal instanceof Date) {
+        return dateVal.toLocaleString('ko-KR');
+    }
+
+    return String(dateVal);
+};
+
 const TARGET_OPTIONS: { value: NotificationTarget; label: string; grade?: number }[] = [
     { value: 'all', label: '전교생' },
     { value: 'grade', label: '1학년', grade: 1 },
@@ -235,7 +270,7 @@ export default function NotificationsPage() {
                                         <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: STATUS_COLORS[notif.status] }} />
                                         <Typo.XS color="secondary">{STATUS_LABELS[notif.status]}</Typo.XS>
                                     </HStack>
-                                    <Typo.XS color="secondary" style={{ flex: 2 }}>{notif.sent_at || notif.scheduled_at || '-'}</Typo.XS>
+                                    <Typo.XS color="secondary" style={{ flex: 2 }}>{formatDate(notif.sent_at || notif.scheduled_at)}</Typo.XS>
                                     <HStack gap={SPACING.s8} style={{ width: 60 }}>
                                         <button
                                             onClick={() => handleDelete(getId(notif._id))}
