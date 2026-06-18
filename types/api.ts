@@ -87,6 +87,7 @@ export interface TimetablePeriod {
   is_substituted: boolean
   substitution_note?: string
   room?: string
+  override_id?: string
 }
 
 export interface Timetable {
@@ -252,3 +253,96 @@ export interface DepartmentClassMapping {
   updated_by: string
   updated_at: string
 }
+
+// === 과목명 매핑 ===
+export interface TeacherNameOverride {
+  raw: string
+  display: string
+  grade?: number
+  classes: number[]
+  weekdays: number[]
+}
+
+export interface SubjectMapping {
+  _id?: string
+  raw: string
+  aliases: string[]
+  display: string
+  color_id?: string
+  teacher_overrides: TeacherNameOverride[]
+  room?: string
+  created_at?: string
+  updated_at?: string
+}
+
+// === 일과 및 설정 ===
+export interface PeriodTime {
+  period: number
+  start: string
+  end: string
+  break_after_mins?: number
+}
+
+export interface LunchBreak {
+  start: string
+  duration_mins: number
+}
+
+export interface PeriodScheduleTemplate {
+  _id?: string
+  name: string
+  description?: string
+  periods: PeriodTime[]
+  grade?: number
+  is_default: boolean
+  homeroom?: PeriodTime
+  lunch_break?: LunchBreak
+  created_by?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PeriodTimeOverride {
+  period: number
+  time: PeriodTime | null
+}
+
+export interface ScheduleOverride {
+  _id?: string | { $oid: string }
+  date: string
+  template_id?: string | { $oid: string } | null
+  is_no_school: boolean
+  period_overrides: PeriodTimeOverride[]
+  suppress_lunch: boolean
+  lunch_break_override?: LunchBreak | null
+  note?: string | null
+  created_by?: string | { $oid: string }
+  created_at?: string
+}
+
+export interface Holiday {
+  _id?: string | { $oid: string }
+  date: string
+  name: string
+  grades?: number[] | null
+  is_no_school: boolean
+  override_weekend?: boolean
+  created_by?: string | { $oid: string }
+  created_at?: string
+  updated_at?: string
+}
+
+export interface GcalQueueStats {
+  push_queue: {
+    pending: number
+    processing: number
+    done: number
+    failed: number
+    failed_permanent: number
+    total: number
+  }
+  event_slots: {
+    timetable_source: number
+  }
+}
+

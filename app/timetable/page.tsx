@@ -6,7 +6,7 @@ import { HStack } from '@/components/general/HStack'
 import Typo from '@/components/general/Typo'
 import { COLORS } from '@/constants/colors'
 import { SPACING } from '@/constants/spacing'
-import { apiGet, apiPost } from '@/lib/api'
+import { apiGet, apiPost, apiDelete } from '@/lib/api'
 import type { Timetable, TimetablePeriod, SyncLog, Department } from '@/types/api'
 
 const PERIODS = [1, 2, 3, 4, 5, 6, 7]
@@ -142,8 +142,15 @@ export default function TimetablePage() {
         const friday = dates[4]
 
         try {
-            const res = await apiGet<Timetable[]>(`/timetable/${gradeNum}/${classNum}?from=${formatDate(monday)}&to=${formatDate(friday)}`)
+            const year = monday.getFullYear()
+            const month = monday.getMonth() + 1
 
+            const [res, overridesRes] = await Promise.all([
+                apiGet<Timetable[]>(`/timetable/${gradeNum}/${classNum}?from=${formatDate(monday)}&to=${formatDate(friday)}`),
+                apiGet<any[]>(`/admin/timetable-overrides?year=${year}&month=${month}`)
+            ])
+
+            const overrides = (overridesRes.success && overridesRes.data) ? overridesRes.data : []
             const week: WeekTimetable = { '월': [], '화': [], '수': [], '목': [], '금': [] }
             
             if (res.success && res.data) {
@@ -169,6 +176,29 @@ export default function TimetablePage() {
                                     room: slot.room,
                                 }))
                         }
+
+                        // 해당 일자 및 학년/반에 매핑되는 override가 있는지 탐색
+                        const targetDateStr = dayData.date.split('T')[0]
+                        const matchingOverride = overrides.find((ov: any) => {
+                            const ovDateStr = ov.date.split('T')[0]
+                            return ovDateStr === targetDateStr &&
+                                ov.grades?.includes(gradeNum) &&
+                                ov.classes?.includes(classNum)
+                        })
+
+                        if (matchingOverride) {
+                            periods = periods.map(p => {
+                                const hasPeriodOverride = matchingOverride.periods?.some((op: any) => op.period === p.period)
+                                const overrideId = matchingOverride._id && typeof matchingOverride._id === 'object' && '$oid' in matchingOverride._id
+                                    ? (matchingOverride._id as any).$oid
+                                    : matchingOverride._id
+                                return {
+                                    ...p,
+                                    override_id: hasPeriodOverride ? overrideId : undefined
+                                }
+                            })
+                        }
+
                         week[dayKey] = periods
                     }
                 })
@@ -268,6 +298,8 @@ export default function TimetablePage() {
                 alert('수업 교체가 성공적으로 등록되었습니다.')
                 setIsModalOpen(false)
                 fetchWeekTimetable()
+                // 시간표가 바뀌었으므로 학년/반 유저들에게 FCM 푸시 알림 발송
+                triggerSubstitutionNotification(gradeNum, classNum, selectedDept)
                 // 입력 필드 초기화
                 setFormSubjectShort('')
                 setFormSubjectLong('')
@@ -282,6 +314,54 @@ export default function TimetablePage() {
             setSubmitting(false)
         }
     }, [formDate, gradeNum, classNum, selectedDept, formPeriod, formSubjectShort, formSubjectLong, formTeacher, formNote, fetchWeekTimetable])
+
+    const handleDeleteOverride = useCallback(async (id: string) => {
+        if (!confirm('정말로 이 수업 교체 설정을 삭제하시겠습니까? 원래 정규 시간표로 복원됩니다.')) {
+            return
+        }
+        try {
+            const res = await apiDelete(`/admin/timetable-overrides/${id}`)
+            if (res.success) {
+                alert('수업 교체가 정상적으로 삭제되었습니다.')
+                fetchWeekTimetable()
+                // 수업 교체 설정을 삭제(원복)했으므로 FCM 푸시 알림 발송
+                triggerSubstitutionNotification(gradeNum, classNum, selectedDept)
+            } else {
+                alert(`삭제 실패: ${res.error?.message || '알 수 없는 오류'}`)
+            }
+        } catch {
+            alert('삭제 요청 중 에러가 발생했습니다.')
+        }
+    }, [fetchWeekTimetable])
+
+    // 알림 발송을 요청하는 헬퍼 함수
+    const triggerSubstitutionNotification = useCallback(async (grade: number, classN: number, dept: Department) => {
+        try {
+            // 1. 알림 생성
+            const createRes = await apiPost<any>('/admin/notifications', {
+                title: '시간표 변경 알림',
+                body: `${grade}학년 ${classN}반 시간표가 변경되었습니다. 최신 정보를 확인하세요.`,
+                target: 'Class',
+                target_grade: grade,
+                target_class: classN,
+                target_department: dept
+            })
+
+            // 2. 생성 성공 시 즉시 푸시 전송 트리거
+            if (createRes.success && createRes.data) {
+                const notifId = createRes.data._id && typeof createRes.data._id === 'object' && '$oid' in createRes.data._id
+                    ? createRes.data._id.$oid
+                    : createRes.data._id;
+                
+                if (notifId) {
+                    await apiPost(`/admin/notifications/${notifId}/send`)
+                    console.log('[FCM] Timetable change push notification sent successfully.');
+                }
+            }
+        } catch (e) {
+            console.error('[FCM] Failed to send push notification for timetable change:', e);
+        }
+    }, [])
 
     const substitutions: { day: string; period: TimetablePeriod }[] = []
     DAYS.forEach(day => {
@@ -443,7 +523,23 @@ export default function TimetablePage() {
                             <Typo.SM color="primary">{s.day}요일 {s.period.period}교시 — {s.period.subject_short}</Typo.SM>
                             {s.period.substitution_note && <Typo.XXS color="secondary">{s.period.substitution_note}</Typo.XXS>}
                         </VStack>
-                        <Typo.XS color="secondary">{s.period.teacher}</Typo.XS>
+                        <HStack gap={SPACING.s12} align="center">
+                            <Typo.XS color="secondary">{s.period.teacher}</Typo.XS>
+                            {s.period.override_id && (
+                                <button
+                                    onClick={() => handleDeleteOverride(s.period.override_id!)}
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        border: `1px solid ${COLORS.text.wrong}`,
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        borderRadius: 6,
+                                    }}
+                                >
+                                    <Typo.XS color="wrong" fontWeight="medium">삭제</Typo.XS>
+                                </button>
+                            )}
+                        </HStack>
                     </HStack>
                 ))}
             </VStack>

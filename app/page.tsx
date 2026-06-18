@@ -6,8 +6,8 @@ import { HStack } from '@/components/general/HStack'
 import Typo from '@/components/general/Typo'
 import { COLORS } from '@/constants/colors'
 import { SPACING } from '@/constants/spacing'
-import { apiGet } from '@/lib/api'
-import type { AdminStats, SchoolScheduleEntry } from '@/types/api'
+import { apiGet, apiPost } from '@/lib/api'
+import type { AdminStats, SchoolScheduleEntry, GcalQueueStats } from '@/types/api'
 
 const getId = (id: any): string => (typeof id === 'object' && id !== null ? id.$oid || id.id || id._id || String(id) : String(id));
 
@@ -78,8 +78,61 @@ function getAlerts(stats: AdminStats): { type: string; message: string }[] {
 export default function HomePage() {
     const [stats, setStats] = useState<AdminStats | null>(null)
     const [schedule, setSchedule] = useState<SchoolScheduleEntry[]>([])
+    const [gcalStats, setGcalStats] = useState<GcalQueueStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const [gcalLoading, setGcalLoading] = useState(false)
+    const [actionPending, setActionPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    const fetchGcalStatus = async () => {
+        setGcalLoading(true)
+        try {
+            const res = await apiGet<GcalQueueStats>('/admin/gcal/status')
+            if (res.success && res.data) {
+                setGcalStats(res.data)
+            }
+        } catch (err) {
+            console.error('Error fetching GCal status:', err)
+        } finally {
+            setGcalLoading(false)
+        }
+    }
+
+    const handleReconcile = async () => {
+        if (!confirm('구글 캘린더 동기화 정합성을 체크하고 복구 작업을 큐에 등록하시겠습니까?')) return
+        setActionPending(true)
+        try {
+            const res = await apiPost('/admin/gcal/trigger-reconcile')
+            if (res.success) {
+                alert('동기화 정합성 체크 요청이 수락되었습니다.')
+                fetchGcalStatus()
+            } else {
+                alert(res.error?.message || '요청 처리에 실패했습니다.')
+            }
+        } catch {
+            alert('요청 중 서버 에러가 발생했습니다.')
+        } finally {
+            setActionPending(false)
+        }
+    }
+
+    const handleBackfill = async () => {
+        if (!confirm('모든 연동 사용자의 과거 시간표 데이터 강제 백필(재동기화)을 진행하시겠습니까?\n서버에 부하가 발생할 수 있습니다.')) return
+        setActionPending(true)
+        try {
+            const res = await apiPost('/admin/gcal/force-backfill')
+            if (res.success) {
+                alert('강제 재동기화(백필) 작업이 수락되었습니다.')
+                fetchGcalStatus()
+            } else {
+                alert(res.error?.message || '요청 처리에 실패했습니다.')
+            }
+        } catch {
+            alert('요청 중 서버 에러가 발생했습니다.')
+        } finally {
+            setActionPending(false)
+        }
+    }
 
     useEffect(() => {
         async function fetchData() {
@@ -109,6 +162,7 @@ export default function HomePage() {
         }
 
         fetchData()
+        fetchGcalStatus()
     }, [])
 
     if (error) {
@@ -222,6 +276,121 @@ export default function HomePage() {
                                     <Typo.XS color="secondary">{alert.message}</Typo.XS>
                                 </HStack>
                             ))}
+                        </VStack>
+                    </SectionCard>
+
+                    {/* Google 캘린더 연동 현황 영역 */}
+                    <SectionCard title="Google 캘린더 연동 현황">
+                        <VStack gap={SPACING.s16} fullWidth>
+                            {gcalStats ? (
+                                <>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gap: SPACING.s8,
+                                        width: '100%'
+                                    }}>
+                                        <VStack gap={SPACING.s4} style={{ padding: SPACING.s10, backgroundColor: COLORS.background.third, borderRadius: 8 }}>
+                                            <Typo.XXS color="secondary">대기 중</Typo.XXS>
+                                            <Typo.SM color="primary" fontWeight="bold">
+                                                {gcalStats.push_queue.pending.toLocaleString()}
+                                            </Typo.SM>
+                                        </VStack>
+                                        <VStack gap={SPACING.s4} style={{ padding: SPACING.s10, backgroundColor: COLORS.background.third, borderRadius: 8 }}>
+                                            <Typo.XXS color="secondary">처리 중</Typo.XXS>
+                                            <Typo.SM color="primary" fontWeight="bold">
+                                                {gcalStats.push_queue.processing.toLocaleString()}
+                                            </Typo.SM>
+                                        </VStack>
+                                        <VStack gap={SPACING.s4} style={{ padding: SPACING.s10, backgroundColor: COLORS.background.third, borderRadius: 8 }}>
+                                            <Typo.XXS color="secondary">완료</Typo.XXS>
+                                            <Typo.SM style={{ color: COLORS.text.correct }} fontWeight="bold">
+                                                {gcalStats.push_queue.done.toLocaleString()}
+                                            </Typo.SM>
+                                        </VStack>
+                                        <VStack gap={SPACING.s4} style={{ padding: SPACING.s10, backgroundColor: COLORS.background.third, borderRadius: 8 }}>
+                                            <Typo.XXS color="secondary">실패 (영구 실패)</Typo.XXS>
+                                            <HStack gap={SPACING.s4} align="end">
+                                                <Typo.SM style={{ color: gcalStats.push_queue.failed > 0 ? COLORS.text.wrong : COLORS.text.secondary }} fontWeight="bold">
+                                                    {gcalStats.push_queue.failed.toLocaleString()}
+                                                </Typo.SM>
+                                                <Typo.XXS style={{ color: gcalStats.push_queue.failed_permanent > 0 ? COLORS.text.wrong : COLORS.text.secondary }}>
+                                                    ({gcalStats.push_queue.failed_permanent.toLocaleString()})
+                                                </Typo.XXS>
+                                            </HStack>
+                                        </VStack>
+                                    </div>
+
+                                    <HStack justify="between" align="center" style={{ borderTop: `1px solid ${COLORS.border.primary}`, paddingTop: SPACING.s12 }} fullWidth>
+                                        <Typo.XXS color="secondary">전체 작업: {gcalStats.push_queue.total.toLocaleString()}건</Typo.XXS>
+                                        <button
+                                            onClick={fetchGcalStatus}
+                                            disabled={gcalLoading}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: 0,
+                                            }}
+                                        >
+                                            <Typo.XXS color="secondary" style={{ textDecoration: 'underline' }}>
+                                                {gcalLoading ? '갱신 중...' : '새로고침'}
+                                            </Typo.XXS>
+                                        </button>
+                                    </HStack>
+                                </>
+                            ) : (
+                                <VStack gap={SPACING.s8} align="center" style={{ padding: SPACING.s12 }} fullWidth>
+                                    <Typo.XS color="secondary">연동 상태 데이터를 불러오는 중이거나 권한이 없습니다.</Typo.XS>
+                                    <button
+                                        onClick={fetchGcalStatus}
+                                        disabled={gcalLoading}
+                                        style={{
+                                            padding: `${SPACING.s4}px ${SPACING.s8}px`,
+                                            backgroundColor: COLORS.background.third,
+                                            border: `1px solid ${COLORS.border.primary}`,
+                                            borderRadius: 6,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        <Typo.XXS color="primary">{gcalLoading ? '로딩 중...' : '다시 시도'}</Typo.XXS>
+                                    </button>
+                                </VStack>
+                            )}
+
+                            <VStack gap={SPACING.s8} fullWidth style={{ borderTop: `1px solid ${COLORS.border.primary}`, paddingTop: SPACING.s12 }}>
+                                <Typo.XXS color="secondary" fontWeight="medium">동기화 복구 관리자 조작</Typo.XXS>
+                                <HStack gap={SPACING.s8} fullWidth>
+                                    <button
+                                        onClick={handleReconcile}
+                                        disabled={actionPending}
+                                        style={{
+                                            flex: 1,
+                                            padding: `${SPACING.s8}px ${SPACING.s4}px`,
+                                            backgroundColor: actionPending ? COLORS.background.third : COLORS.brand.primary,
+                                            border: 'none',
+                                            borderRadius: 6,
+                                            cursor: actionPending ? 'not-allowed' : 'pointer',
+                                        }}
+                                    >
+                                        <Typo.XXS color="inverted" fontWeight="medium">정합성 체크</Typo.XXS>
+                                    </button>
+                                    <button
+                                        onClick={handleBackfill}
+                                        disabled={actionPending}
+                                        style={{
+                                            flex: 1,
+                                            padding: `${SPACING.s8}px ${SPACING.s4}px`,
+                                            backgroundColor: 'transparent',
+                                            border: `1px solid ${actionPending ? COLORS.border.primary : COLORS.brand.primary}`,
+                                            borderRadius: 6,
+                                            cursor: actionPending ? 'not-allowed' : 'pointer',
+                                        }}
+                                    >
+                                        <Typo.XXS style={{ color: actionPending ? COLORS.text.secondary : COLORS.text.primary }} fontWeight="medium">강제 재동기화</Typo.XXS>
+                                    </button>
+                                </HStack>
+                            </VStack>
                         </VStack>
                     </SectionCard>
                 </VStack>

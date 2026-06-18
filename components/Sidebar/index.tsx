@@ -15,6 +15,8 @@ const NAV_ITEMS = [
     { href: '/', label: '홈', icon: '⊞' },
     { href: '/schedule', label: '일정 관리', icon: '📅' },
     { href: '/timetable', label: '시간표 관리', icon: '🗓' },
+    { href: '/subject-mappings', label: '과목 매핑', icon: '🔄' },
+    { href: '/settings', label: '일과 및 설정', icon: '⚙️' },
     { href: '/meal', label: '급식 관리', icon: '🍱' },
     { href: '/users', label: '사용자 관리', icon: '👥' },
     { href: '/notifications', label: '알림 관리', icon: '🔔' },
