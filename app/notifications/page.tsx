@@ -142,9 +142,12 @@ export default function NotificationsPage() {
     }, [])
 
     const handleDelete = async (id: string) => {
+        if (!confirm('정말 삭제하시겠습니까?')) return
         const res = await apiDelete(`/admin/notifications/${id}`)
         if (res.success) {
-            setNotifications(prev => prev.filter(n => n._id !== id))
+            setNotifications(prev => prev.filter(n => getId(n._id) !== id))
+        } else {
+            alert(res.error?.message || '삭제에 실패했습니다.')
         }
     }
 
