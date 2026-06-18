@@ -341,7 +341,7 @@ export default function TimetablePage() {
             const createRes = await apiPost<any>('/admin/notifications', {
                 title: '시간표 변경 알림',
                 body: `${grade}학년 ${classN}반 시간표가 변경되었습니다. 최신 정보를 확인하세요.`,
-                target: 'Class',
+                target: 'class',
                 target_grade: grade,
                 target_class: classN,
                 target_department: dept

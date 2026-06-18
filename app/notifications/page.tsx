@@ -13,11 +13,11 @@ import { DEPARTMENT_LABELS } from '@/types/api'
 const getId = (id: any): string => (typeof id === 'object' && id !== null ? id.$oid || id.id || id._id || String(id) : String(id));
 
 const TARGET_OPTIONS: { value: NotificationTarget; label: string; grade?: number }[] = [
-    { value: 'All', label: '전교생' },
-    { value: 'Grade', label: '1학년', grade: 1 },
-    { value: 'Grade', label: '2학년', grade: 2 },
-    { value: 'Grade', label: '3학년', grade: 3 },
-    { value: 'Class', label: '특정 반' },
+    { value: 'all', label: '전교생' },
+    { value: 'grade', label: '1학년', grade: 1 },
+    { value: 'grade', label: '2학년', grade: 2 },
+    { value: 'grade', label: '3학년', grade: 3 },
+    { value: 'class', label: '특정 반' },
 ]
 
 const STATUS_LABELS: Record<NotificationStatus, string> = {
@@ -36,13 +36,13 @@ const STATUS_COLORS: Record<NotificationStatus, string> = {
 
 function getTargetLabel(notif: Notification): string {
     switch (notif.target) {
-        case 'All':
+        case 'all':
             return '전교생'
-        case 'Grade':
+        case 'grade':
             return `${notif.target_grade}학년`
-        case 'Class':
+        case 'class':
             return `${notif.target_grade}-${notif.target_class}반`
-        case 'Department':
+        case 'department':
             return notif.target_department ? DEPARTMENT_LABELS[notif.target_department] : '학과'
         default:
             return ''
@@ -120,9 +120,9 @@ export default function NotificationsPage() {
             body: modalBody,
             target: option.value,
         }
-        if (option.value === 'Grade') {
+        if (option.value === 'grade') {
             body.target_grade = option.grade
-        } else if (option.value === 'Class') {
+        } else if (option.value === 'class') {
             body.target_grade = modalGrade
             body.target_class = modalClass
         }
@@ -335,7 +335,7 @@ export default function NotificationsPage() {
                             </HStack>
                         </VStack>
 
-                        {TARGET_OPTIONS[modalTarget].value === 'Class' && (
+                        {TARGET_OPTIONS[modalTarget].value === 'class' && (
                             <HStack gap={SPACING.s10} fullWidth>
                                 <VStack gap={SPACING.s4} style={{ flex: 1 }}>
                                     <Typo.XS color="secondary">학년</Typo.XS>

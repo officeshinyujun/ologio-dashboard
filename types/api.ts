@@ -162,7 +162,7 @@ export interface SchoolScheduleEntry {
 
 // === 알림 ===
 
-export type NotificationTarget = 'All' | 'Grade' | 'Class' | 'Department'
+export type NotificationTarget = 'all' | 'grade' | 'class' | 'department'
 
 export type NotificationStatus = 'draft' | 'scheduled' | 'sent' | 'failed'
 

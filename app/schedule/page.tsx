@@ -7,7 +7,7 @@ import Typo from "@/components/general/Typo";
 import { COLORS } from "@/constants/colors";
 import { SPACING } from "@/constants/spacing";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
-import type { Event, EventType, EventScope, Department } from "@/types/api";
+import type { Event, EventType, EventScope, Department, NotificationTarget } from "@/types/api";
 
 type TabFilter = "all" | "academic" | "class" | "special";
 type CategoryColor = keyof typeof COLORS.calendar;
@@ -246,6 +246,69 @@ export default function SchedulePage() {
     };
   }, [getSelectedWeekRange]);
 
+  const triggerEventNotification = useCallback(async (
+    action: "create" | "update" | "delete",
+    title: string,
+    scope: EventScope,
+    eventType: EventType
+  ) => {
+    try {
+      const typeLabel = EVENT_TYPE_LABELS[eventType] || "일정";
+      let actionText = "등록";
+      if (action === "update") actionText = "수정";
+      if (action === "delete") actionText = "삭제";
+
+      const notifTitle = `[${typeLabel}] ${actionText} 알림`;
+      const notifBody = `"${title}" 일정이 ${actionText}되었습니다.`;
+
+      let target: NotificationTarget = "all";
+      let target_department: Department | undefined = undefined;
+      let target_grade: number | undefined = undefined;
+      let target_class: number | undefined = undefined;
+
+      if (scope.type === "school") {
+        target = "all";
+      } else if (scope.type === "department") {
+        target = "department";
+        target_department = scope.department;
+      } else if (scope.type === "class") {
+        target = "class";
+        target_department = scope.department;
+        target_grade = scope.grade;
+        target_class = scope.class;
+      } else {
+        return;
+      }
+
+      // 1. 알림 생성
+      const createRes = await apiPost<any>("/admin/notifications", {
+        title: notifTitle,
+        body: notifBody,
+        target,
+        target_department,
+        target_grade,
+        target_class,
+      });
+
+      // 2. 생성 성공 시 즉시 푸시 전송 트리거
+      if (createRes.success && createRes.data) {
+        const notifId =
+          createRes.data._id &&
+          typeof createRes.data._id === "object" &&
+          "$oid" in createRes.data._id
+            ? createRes.data._id.$oid
+            : createRes.data._id;
+
+        if (notifId) {
+          await apiPost(`/admin/notifications/${notifId}/send`);
+          console.log(`[FCM] Event ${action} push notification sent successfully.`);
+        }
+      }
+    } catch (e) {
+      console.error(`[FCM] Failed to send push notification for event ${action}:`, e);
+    }
+  }, []);
+
   const handleSave = async () => {
     console.log("[DEBUG] handleSave state:", {
       formTitle,
@@ -293,6 +356,7 @@ export default function SchedulePage() {
     };
 
     let res;
+    const isEdit = !!editingEvent;
     if (editingEvent) {
       res = await apiPut(
         `/admin/events/${getIdString(editingEvent._id)}`,
@@ -307,6 +371,14 @@ export default function SchedulePage() {
       setShowModal(false);
       resetForm();
       fetchEvents();
+
+      // 알림 발송 트리거
+      triggerEventNotification(
+        isEdit ? "update" : "create",
+        body.title,
+        scope,
+        body.event_type
+      );
     } else {
       console.error("[DEBUG] Save failed. Response:", res);
       alert(
@@ -316,11 +388,20 @@ export default function SchedulePage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (event: Event) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
+    const id = getIdString(event._id);
     const res = await apiDelete(`/admin/events/${id}`);
     if (res.success) {
       fetchEvents();
+      
+      // 알림 발송 트리거
+      triggerEventNotification(
+        "delete",
+        event.title,
+        event.scope,
+        event.event_type
+      );
     } else {
       alert(res.error?.message || "삭제에 실패했습니다.");
     }
@@ -762,7 +843,7 @@ export default function SchedulePage() {
                       <Typo.XS color="secondary">수정</Typo.XS>
                     </button>
                     <button
-                      onClick={() => handleDelete(getIdString(event._id))}
+                      onClick={() => handleDelete(event)}
                       style={{
                         background: "none",
                         border: "none",
