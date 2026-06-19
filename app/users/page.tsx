@@ -103,7 +103,8 @@ export default function UsersPage() {
 
         const [newRole] = selected
         const userId = getId(user._id)
-        const res = await apiPut(`/admin/users/${userId}/role`, { role: newRole })
+        const roleToSend = newRole === 'admin' ? 'system_admin' : newRole
+        const res = await apiPost('/admin/users/assign-role', { user_id: userId, role: roleToSend })
         if (res.success) {
             alert('권한이 변경되었습니다.')
             fetchUsers()

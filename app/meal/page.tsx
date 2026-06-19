@@ -91,11 +91,8 @@ export default function MealPage() {
                     <Typo.SM color="secondary">주간 식단 및 알레르기 정보를 확인합니다.</Typo.SM>
                 </VStack>
                 <HStack gap={SPACING.s10}>
-                    <button style={{ padding: `${SPACING.s8}px ${SPACING.s16}px`, backgroundColor: COLORS.brand.primary, border: 'none', borderRadius: 8, cursor: 'pointer' }}>
-                        <Typo.SM color="inverted" fontWeight="medium">+ 식단 등록</Typo.SM>
-                    </button>
-                    <button onClick={async () => { const r = await apiPost('/admin/sync/meal'); if (r.success) { alert('급식 동기화 요청됨'); const w = await apiGet<Meal[]>('/meal/week'); if (w.success && w.data) setWeekMeals(w.data); } }} style={{ padding: `${SPACING.s8}px ${SPACING.s16}px`, backgroundColor: COLORS.background.third, border: `1px solid ${COLORS.border.primary}`, borderRadius: 8, cursor: 'pointer' }}>
-                        <Typo.SM color="secondary">NEIS 연동</Typo.SM>
+                    <button onClick={async () => { const r = await apiPost('/admin/sync/meal'); if (r.success) { alert('급식 동기화 요청됨'); const w = await apiGet<Meal[]>('/meal/week'); if (w.success && w.data) setWeekMeals(w.data); } }} style={{ padding: `${SPACING.s8}px ${SPACING.s16}px`, backgroundColor: COLORS.brand.primary, border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                        <Typo.SM color="inverted" fontWeight="medium">NEIS 급식 동기화</Typo.SM>
                     </button>
                 </HStack>
             </HStack>
